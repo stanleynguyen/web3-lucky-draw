@@ -32,6 +32,9 @@ var drawPot []entry = []entry{}
 //go:embed index.html
 var indexHTML []byte
 
+//go:embed draw.html
+var drawHTML []byte
+
 func main() {
 	if err := godotenv.Load(); err != nil && os.Getenv("GO_ENV") != "production" {
 		log.Fatal(err)
@@ -94,6 +97,12 @@ func main() {
 				e.WalletAddress[len(e.WalletAddress)-2:])
 		}
 		w.Write([]byte(res))
+	})
+	router.Get("/entries", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(drawPot)
+	})
+	router.Get("/draw", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(drawHTML)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(indexHTML)

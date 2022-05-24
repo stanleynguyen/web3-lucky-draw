@@ -1,0 +1,157 @@
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web3 Lucky Draw</title>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/flexboxgrid/6.3.1/flexboxgrid.min.css"
+    type="text/css"
+  />
+  <link
+    href="https://fonts.googleapis.com/css?family=Press+Start+2P"
+    rel="stylesheet"
+  />
+  <link
+    href="https://unpkg.com/nes.css@latest/css/nes.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      background: #2f2b60;
+    }
+
+    label {
+      margin: 10px auto;
+    }
+
+    label > span {
+      color: #fff;
+      font-size: 1.25rem;
+    }
+
+    label > .nes-radio:checked + span,
+    label > .nes-radio:checked + span::before {
+      color: #ff08c0;
+    }
+  </style>
+</head>
+<body>
+  <div
+    class="container"
+    style="
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 50px;
+    "
+  >
+    <div class="row" style="width: 100%">
+      <div
+        class="col-12"
+        style="
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        "
+        id="participants"
+      ></div>
+    </div>
+    <div class="row" style="width: 100%">
+      <div
+        class="col-12"
+        style="
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        "
+      >
+        <button
+          type="button"
+          class="nes-btn is-success"
+          style="margin-top: 50px"
+          id="roll"
+        >
+          Roll
+        </button>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <script>
+    (async function main() {
+      const participantsContainer = document.querySelector("#participants");
+
+      function participantHTML(i, p) {
+        const address = p.wallet_address;
+        return `
+        <label>
+          <input type="radio" class="nes-radio" name="answer" id="choice-${i}" disabled />
+          <span>${p.name} (${address.slice(0, 8).toString()}..${address.slice(
+          address.length - 6
+        )})</span>
+        </label>
+      `;
+      }
+
+      function unique(rawListOfEntries) {
+        const seen = {};
+        return rawListOfEntries.filter((e) => {
+          return seen.hasOwnProperty(e.wallet_address)
+            ? false
+            : (seen[e.wallet_address] = true);
+        });
+      }
+      const res = await fetch("/entries");
+      const entries = unique(await res.json());
+      let containerHTML = "";
+      for (let i = 0; i < entries.length; i++) {
+        containerHTML += participantHTML(i, entries[i]);
+      }
+      participantsContainer.innerHTML = containerHTML;
+
+      function highlightChosen(chosenId) {
+        document
+          .querySelectorAll('input[type="radio"]')
+          .forEach((e) => (e.checked = false));
+        document.querySelector(`#choice-${chosenId}`).checked = true;
+      }
+
+      let fettiInterval;
+      document.querySelector("#roll").addEventListener("click", async () => {
+        if (fettiInterval) clearInterval(fettiInterval);
+        for (let i = 0; i < 21; i++) {
+          let timeout = 200;
+          if (i > 14) {
+            timeout = 600;
+          } else if (i > 18) {
+            timeout = 1800;
+          }
+          let chosen;
+          await new Promise((resolve) =>
+            setTimeout(() => {
+              let newChosen = Math.floor(Math.random() * entries.length);
+              if (entries.length === 1) {
+                chosen = newChosen;
+              } else if (newChosen === chosen && newChosen > 0) {
+                chosen -= 1;
+              } else if (newChosen === chosen && newChosen < entries.length) {
+                chosen += 1;
+              }
+              chosen = newChosen;
+              highlightChosen(chosen);
+              resolve();
+            }, timeout)
+          );
+        }
+        fettiInterval = setInterval(
+          () => confetti({ particleCount: Math.random() * 100 + 100 }),
+          1299
+        );
+      });
+    })();
+  </script>
+</body>

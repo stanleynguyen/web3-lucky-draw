@@ -1,12 +1,12 @@
-FROM golang:alpine as builder
+FROM golang:stretch as builder
 WORKDIR /go/src/github.com/stanleynguyen/web3-lucky-draw
-RUN apk update && apk upgrade
+RUN apt update && apt upgrade -y
 COPY . .
-RUN GOOS=linux go build -o app .
+RUN go build -o app .
 
-FROM alpine:latest
-RUN apk update && apk upgrade
-RUN apk --no-cache add ca-certificates
+FROM debian:stretch
+ENV GO_ENV=production
+RUN apt update && apt upgrade -y
 WORKDIR /root/
 COPY --from=builder /go/src/github.com/stanleynguyen/web3-lucky-draw/app .
 CMD ["./app"]

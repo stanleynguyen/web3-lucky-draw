@@ -20,7 +20,7 @@
     }
 
     body {
-      font-family: 'Nunito', sans-serif;
+      font-family: "Nunito", sans-serif;
       color: #384047;
     }
 
@@ -37,16 +37,16 @@
       text-align: center;
     }
 
-    input[type='text'],
-    input[type='password'],
-    input[type='date'],
-    input[type='datetime'],
-    input[type='email'],
-    input[type='number'],
-    input[type='search'],
-    input[type='tel'],
-    input[type='time'],
-    input[type='url'],
+    input[type="text"],
+    input[type="password"],
+    input[type="date"],
+    input[type="datetime"],
+    input[type="email"],
+    input[type="number"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="time"],
+    input[type="url"],
     textarea,
     select {
       background: rgba(255, 255, 255, 0.1);
@@ -63,8 +63,8 @@
       margin-bottom: 30px;
     }
 
-    input[type='radio'],
-    input[type='checkbox'] {
+    input[type="radio"],
+    input[type="checkbox"] {
       margin: 0 4px 8px 0;
     }
 
@@ -145,64 +145,92 @@
   type="application/javascript"
 ></script>
 <script>
-  let provider;
-  try {
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-  } catch (e) {
-    alert('Please install metamask first');
-  }
-  let signer;
-  const form = document.querySelector('#form');
-  document.querySelector('#connect').addEventListener('click', async () => {
+  (async function main() {
+    let provider, signer;
     try {
-      await provider.send('eth_requestAccounts', []);
+      provider = new ethers.providers.Web3Provider(window.ethereum);
       signer = provider.getSigner();
-      form.querySelector('fieldset').innerHTML = `
-        <legend><span class="number">2</span> Your info</legend>
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" />
-        <button type="submit">Enter Lucky Draw</button>
-      `;
     } catch (e) {
-      alert('Please accept the request to connect');
+      alert("Please install metamask first");
     }
-  });
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!signer) return;
-    const submitBtn = document.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Entering...';
+    function moveToStep2(address) {
+      form.querySelector("fieldset").innerHTML = `
+            <legend><span class="number">2</span> Your info</legend>
+            <label for="name">Wallet Address:</label>
+            <input type="text" id="address" name="address" value=${address} disabled />
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" />
+            <button type="submit">Enter Lucky Draw</button>
+          `;
+    }
 
-    const name = document.querySelector('#name').value;
-    if (!name) {
-      alert('Enter your name');
-      submitBtn.textContent = 'Enter Lucky Draw';
-      return;
+    function moveToStep3() {
+      form.querySelector("fieldset").innerHTML = `
+          <legend style="text-align: center">
+            <span class="number">&check;</span> Successfully entered
+          </legend>
+        `;
     }
 
     try {
-      const res = await fetch('/enter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          signature: await signer.signMessage('WAGMI'),
-          name,
-        }),
-      });
-      if (res.status > 299 || res.status < 200) {
-        throw new Error(await res.text());
+      const [address, res] = await Promise.all([
+        signer.getAddress(),
+        fetch("/entries"),
+      ]);
+      const entries = await res.json();
+      const alreadyIn =
+        entries.filter((e) => e.wallet_address === address).length > 0;
+      if (alreadyIn) {
+        return moveToStep3();
       }
-      form.querySelector('fieldset').innerHTML = `
-        <legend style="text-align: center">
-          <span class="number">&check;</span> Successfully entered
-        </legend>
-      `;
+      moveToStep2(address);
     } catch (e) {
-      alert(`Error: ${e.message}. Please try again`);
+      console.log(e);
+      const form = document.querySelector("#form");
+      document.querySelector("#connect").addEventListener("click", async () => {
+        try {
+          await provider.send("eth_requestAccounts", []);
+          signer = provider.getSigner();
+          moveToStep2(await signer.getAddress());
+        } catch (e) {
+          alert("Please accept the request to connect");
+        }
+      });
     }
-  });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!signer) return;
+      const submitBtn = document.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Entering...";
+
+      const name = document.querySelector("#name").value;
+      if (!name) {
+        alert("Enter your name");
+        submitBtn.textContent = "Enter Lucky Draw";
+        return;
+      }
+
+      try {
+        const res = await fetch("/enter", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            signature: await signer.signMessage("WAGMI"),
+            name,
+          }),
+        });
+        if (res.status > 299 || res.status < 200) {
+          throw new Error(await res.text());
+        }
+        moveToStep3();
+      } catch (e) {
+        alert(`Error: ${e.message}. Please try again`);
+      }
+    });
+  })();
 </script>
